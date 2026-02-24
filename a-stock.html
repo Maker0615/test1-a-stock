@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A股指数行情</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "PingFang SC", "Microsoft YaHei", -apple-system, sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #26a69a, #42a5f5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .update-time {
+            color: #8b949e;
+            font-size: 14px;
+        }
+
+        .refresh-btn {
+            background: #238636;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .refresh-btn:hover {
+            background: #2ea043;
+        }
+
+        .refresh-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .refresh-btn.loading .icon {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 20px;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            border-color: #484f58;
+        }
+
+        .card.up {
+            border-left: 4px solid #ef5350;
+        }
+
+        .card.down {
+            border-left: 4px solid #26a69a;
+        }
+
+        .card.flat {
+            border-left: 4px solid #90a4ae;
+        }
+
+        .index-name {
+            font-size: 16px;
+            color: #8b949e;
+            margin-bottom: 8px;
+        }
+
+        .index-price {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            font-family: "SF Mono", "Monaco", monospace;
+        }
+
+        .index-change {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .change-value {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .change-value.up { color: #ef5350; }
+        .change-value.down { color: #26a69a; }
+        .change-value.flat { color: #90a4ae; }
+
+        .change-percent {
+            font-size: 14px;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .change-percent.up {
+            background: rgba(239, 83, 80, 0.15);
+            color: #ef5350;
+        }
+
+        .change-percent.down {
+            background: rgba(38, 166, 154, 0.15);
+            color: #26a69a;
+        }
+
+        .change-percent.flat {
+            background: rgba(144, 164, 174, 0.15);
+            color: #90a4ae;
+        }
+
+        .bar-container {
+            height: 4px;
+            background: #30363d;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .bar {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.5s ease;
+        }
+
+        .bar.up { background: #ef5350; }
+        .bar.down { background: #26a69a; }
+        .bar.flat { background: #90a4ae; }
+
+        .status {
+            text-align: center;
+            padding: 40px;
+            color: #8b949e;
+        }
+
+        .status.error {
+            color: #ef5350;
+        }
+
+        footer {
+            margin-top: 32px;
+            text-align: center;
+            color: #484f58;
+            font-size: 12px;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 16px;
+            }
+            h1 {
+                font-size: 22px;
+            }
+            .index-price {
+                font-size: 26px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📈 A股指数行情</h1>
+            <div class="header-right">
+                <span class="update-time" id="updateTime">--:--:--</span>
+                <button class="refresh-btn" id="refreshBtn" onclick="fetchData()">
+                    <span class="icon">⟳</span>
+                    刷新
+                </button>
+            </div>
+        </header>
+
+        <div class="grid" id="grid">
+            <div class="status">加载中...</div>
+        </div>
+
+        <footer>
+            数据来源: 东方财富 | 每30秒自动刷新
+        </footer>
+    </div>
+
+    <script>
+        // 指数代码映射 (东方财富格式: 1.上证, 0.深证)
+        const indices = [
+            { code: '1.000001', name: '上证指数' },
+            { code: '0.399001', name: '深证成指' },
+            { code: '0.399006', name: '创业板指' },
+            { code: '1.000300', name: '沪深300' },
+            { code: '1.000688', name: '科创50' }
+        ];
+
+        // 备用演示数据
+        const demoData = {
+            '1.000001': { price: 3428.95, change: 12.36, changePercent: 0.36 },
+            '0.399001': { price: 10956.78, change: -45.23, changePercent: -0.41 },
+            '0.399006': { price: 2186.54, change: -8.67, changePercent: -0.40 },
+            '1.000300': { price: 4043.65, change: 23.45, changePercent: 0.58 },
+            '1.000688': { price: 1025.33, change: 5.67, changePercent: 0.56 }
+        };
+
+        async function fetchData() {
+            const btn = document.getElementById('refreshBtn');
+            const grid = document.getElementById('grid');
+            
+            btn.classList.add('loading');
+            btn.disabled = true;
+            grid.innerHTML = '<div class="status">加载中...</div>';
+
+            try {
+                const secids = indices.map(i => i.code).join(',');
+                const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f1,f2,f3,f4,f12,f14&secids=${secids}`;
+                
+                const response = await fetch(url);
+                const json = await response.json();
+                
+                if (json.data && json.data.diff) {
+                    renderCards(json.data.diff);
+                } else {
+                    throw new Error('数据格式错误');
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                grid.innerHTML = '<div class="status error">数据加载失败，显示演示数据</div>';
+                setTimeout(() => renderDemo(), 1000);
+            }
+
+            btn.classList.remove('loading');
+            btn.disabled = false;
+            document.getElementById('updateTime').textContent = new Date().toLocaleTimeString('zh-CN');
+        }
+
+        function renderCards(data) {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+
+            // 按代码排序确保顺序一致
+            const sortedData = indices.map(idx => {
+                return data.find(d => d.f12 === idx.code.split('.')[1]) || {};
+            });
+
+            sortedData.forEach(item => {
+                const price = item.f2;
+                const changePercent = item.f3;
+                const change = item.f4;
+                
+                const direction = changePercent > 0 ? 'up' : (changePercent < 0 ? 'down' : 'flat');
+                const sign = changePercent > 0 ? '+' : '';
+                
+                createCard(item.f14 || '未知', price, change, changePercent, direction, sign);
+            });
+        }
+
+        function renderDemo() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+
+            indices.forEach(idx => {
+                const demo = demoData[idx.code];
+                const direction = demo.changePercent > 0 ? 'up' : (demo.changePercent < 0 ? 'down' : 'flat');
+                const sign = demo.changePercent > 0 ? '+' : '';
+                createCard(idx.name, demo.price, demo.change, demo.changePercent, direction, sign);
+            });
+        }
+
+        function createCard(name, price, change, changePercent, direction, sign) {
+            const grid = document.getElementById('grid');
+            
+            const card = document.createElement('div');
+            card.className = `card ${direction}`;
+            
+            const displayPrice = (price === undefined || price === '-') ? '--' : parseFloat(price).toFixed(2);
+            const displayChange = (change === undefined || change === '-') ? '--' : (change > 0 ? '+' : '') + parseFloat(change).toFixed(2);
+            const displayPercent = (changePercent === undefined || changePercent === '-') ? '--' : (changePercent > 0 ? '+' : '') + parseFloat(changePercent).toFixed(2);
+            
+            const barWidth = Math.min(Math.abs(parseFloat(changePercent) || 0) * 30, 100);
+            
+            card.innerHTML = `
+                <div class="index-name">${name}</div>
+                <div class="index-price">${displayPrice}</div>
+                <div class="index-change">
+                    <span class="change-value ${direction}">${displayChange}</span>
+                    <span class="change-percent ${direction}">${displayPercent}%</span>
+                </div>
+                <div class="bar-container">
+                    <div class="bar ${direction}" style="width: ${barWidth}%"></div>
+                </div>
+            `;
+            
+            grid.appendChild(card);
+        }
+
+        // Initial fetch
+        fetchData();
+
+        // Auto-refresh every 30 seconds
+        setInterval(fetchData, 30000);
+    </script>
+</body>
+</html>
