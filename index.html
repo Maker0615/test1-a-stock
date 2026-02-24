@@ -232,7 +232,7 @@
         </div>
 
         <footer>
-            数据来源: 东方财富 | 每30秒自动刷新
+            数据来源: 东方财富 | 每5秒自动刷新
         </footer>
     </div>
 
@@ -243,7 +243,9 @@
             { code: '0.399001', name: '深证成指' },
             { code: '0.399006', name: '创业板指' },
             { code: '1.000300', name: '沪深300' },
-            { code: '1.000688', name: '科创50' }
+            { code: '1.000688', name: '科创50' },
+            { code: '1.000905', name: '中证500' },
+            { code: '1.000852', name: '中证1000' }
         ];
 
         // 备用演示数据
@@ -252,7 +254,9 @@
             '0.399001': { price: 10956.78, change: -45.23, changePercent: -0.41 },
             '0.399006': { price: 2186.54, change: -8.67, changePercent: -0.40 },
             '1.000300': { price: 4043.65, change: 23.45, changePercent: 0.58 },
-            '1.000688': { price: 1025.33, change: 5.67, changePercent: 0.56 }
+            '1.000688': { price: 1025.33, change: 5.67, changePercent: 0.56 },
+            '1.000905': { price: 8429.52, change: 129.94, changePercent: 1.57 },
+            '1.000852': { price: 8340.82, change: 135.99, changePercent: 1.66 }
         };
 
         async function fetchData() {
@@ -349,8 +353,8 @@
         // Initial fetch
         fetchData();
 
-        // Auto-refresh every 30 seconds
-        setInterval(fetchData, 30000);
+        // Auto-refresh every 5 seconds
+        setInterval(fetchData, 5000);
     </script>
 </body>
 </html>
